@@ -3,6 +3,8 @@ const router = express.Router();
 const path = require("path");
 const fs = require("fs");
 const Pengumuman = require("../model/Pengumuman");
+const Komentar = require("../model/Komentar");
+const User = require("../model/User");
 const { authenticateToken, authorizeRole } = require("../middleware/auth");
 const { uploadPengumuman } = require("../middleware/multer");
 
@@ -58,7 +60,7 @@ router.get("/", authenticateToken, async (req, res) => {
     if (id_kelas_tahun_ajaran) {
       whereClause.id_kelas_tahun_ajaran = id_kelas_tahun_ajaran;
     } else {
-      whereClause.id_kelas_tahun_ajaran = null; // default admin
+      whereClause.id_kelas_tahun_ajaran = null;
     }
 
     const pengumuman = await Pengumuman.findAll({
@@ -66,14 +68,37 @@ router.get("/", authenticateToken, async (req, res) => {
       order: [["created_at", "DESC"]],
     });
 
-    const withFileUrl = pengumuman.map((p) => ({
-      ...p.toJSON(),
-      file_url: getFileUrl(req, p.file),
-    }));
+    const withFileUrl = await Promise.all(
+      pengumuman.map(async (p) => {
+        const komentar = await Komentar.findAll({
+          where: { id_pengumuman: p.id_pengumuman, deleted_at: null },
+          order: [["created_at", "ASC"]],
+          include: [
+            {
+              model: User,
+              attributes: ["id_user", "nama"],
+              as: "user",
+            },
+          ],
+        });
+
+        return {
+          ...p.toJSON(),
+          file_url: getFileUrl(req, p.file),
+          komentar: komentar.map((k) => ({
+            ...k.toJSON(),
+            created_by: k.user ? k.user.nama : null,
+            canAction: req.user.id_user === k.id_created_by,
+          })),
+        };
+      })
+    );
 
     return res.status(200).send({ message: "success", data: withFileUrl });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
@@ -87,15 +112,34 @@ router.get("/:id_pengumuman", authenticateToken, async (req, res) => {
       return res.status(404).send({ message: "Pengumuman tidak ditemukan" });
     }
 
+    const komentar = await Komentar.findAll({
+      where: { id_pengumuman, deleted_at: null },
+      order: [["created_at", "ASC"]],
+      include: [
+        {
+          model: User,
+          attributes: ["id_user", "nama"],
+          as: "user",
+        },
+      ],
+    });
+
     return res.status(200).send({
       message: "success",
       data: {
         ...pengumuman.toJSON(),
         file_url: getFileUrl(req, pengumuman.file),
+        komentar: komentar.map((k) => ({
+          ...k.toJSON(),
+          created_by: k.user ? k.user.nama : null,
+          canAction: req.user.id_user === k.id_created_by,
+        })),
       },
     });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
@@ -121,7 +165,6 @@ router.put(
       };
 
       if (req.file) {
-        // hapus file lama kalau ada
         if (pengumuman.file) {
           const oldFilePath = path.join(
             __dirname,

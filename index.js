@@ -16,6 +16,7 @@ const userRouter = require("./routes/user");
 const kelasTahunAjaranRouter = require("./routes/kelasTahunAjaran");
 const jadwalPelajaranRouter = require("./routes/jadwalPelajaran");
 const pengumumanRouter = require("./routes/pengumuman");
+const komentarRoutes = require("./routes/komentar");
 
 // ================= TEST ROUTE =================
 app.get("/test", (req, res) => {
@@ -25,6 +26,7 @@ app.get("/test", (req, res) => {
 // ================= API ROUTES =================
 app.use("/api/users", userRouter);
 app.use("/api/pengumuman", pengumumanRouter);
+app.use("/api/komentar", komentarRoutes);
 app.use("/api/kelas-tahun-ajaran", kelasTahunAjaranRouter);
 app.use("/api/jadwal-pelajaran", jadwalPelajaranRouter);
 
