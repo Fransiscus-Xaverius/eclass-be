@@ -57,25 +57,4 @@ Komentar.init(
   }
 );
 
-// Relasi ke Pengumuman
-Komentar.belongsTo(Pengumuman, {
-  foreignKey: "id_pengumuman",
-  as: "pengumuman",
-  onDelete: "CASCADE",
-});
-Pengumuman.hasMany(Komentar, {
-  foreignKey: "id_pengumuman",
-  as: "komentar",
-});
-
-// Relasi ke User
-Komentar.belongsTo(User, {
-  foreignKey: "id_created_by",
-  as: "user",
-});
-User.hasMany(Komentar, {
-  foreignKey: "id_created_by",
-  as: "komentar",
-});
-
 module.exports = Komentar;

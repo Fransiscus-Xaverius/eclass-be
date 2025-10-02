@@ -13,10 +13,38 @@ app.use(express.urlencoded({ extended: true }));
 
 // ================= IMPORT ROUTER =================
 const userRouter = require("./routes/user");
+const tahunAjaranRouter = require("./routes/tahunAjaran");
+const kelasRouter = require("./routes/kelas");
+const pelajaranRouter = require("./routes/pelajaran");
 const kelasTahunAjaranRouter = require("./routes/kelasTahunAjaran");
 const jadwalPelajaranRouter = require("./routes/jadwalPelajaran");
 const pengumumanRouter = require("./routes/pengumuman");
 const komentarRoutes = require("./routes/komentar");
+const Kelas = require("./model/Kelas");
+const User = require("./model/User");
+const Komentar = require("./model/Komentar");
+const Pengumuman = require("./model/Pengumuman");
+
+// Relation
+Kelas.belongsTo(User, { foreignKey: "wali_kelas", as: "wali" });
+User.hasMany(Kelas, { foreignKey: "wali_kelas", as: "kelas_wali" });
+Komentar.belongsTo(Pengumuman, {
+  foreignKey: "id_pengumuman",
+  as: "pengumuman",
+  onDelete: "CASCADE",
+});
+Pengumuman.hasMany(Komentar, {
+  foreignKey: "id_pengumuman",
+  as: "komentar",
+});
+Komentar.belongsTo(User, {
+  foreignKey: "id_created_by",
+  as: "user",
+});
+User.hasMany(Komentar, {
+  foreignKey: "id_created_by",
+  as: "komentar",
+});
 
 // ================= TEST ROUTE =================
 app.get("/test", (req, res) => {
@@ -27,6 +55,9 @@ app.get("/test", (req, res) => {
 app.use("/api/users", userRouter);
 app.use("/api/pengumuman", pengumumanRouter);
 app.use("/api/komentar", komentarRoutes);
+app.use("/api/tahun-ajaran", tahunAjaranRouter);
+app.use("/api/kelas", kelasRouter);
+app.use("/api/pelajaran", pelajaranRouter);
 app.use("/api/kelas-tahun-ajaran", kelasTahunAjaranRouter);
 app.use("/api/jadwal-pelajaran", jadwalPelajaranRouter);
 

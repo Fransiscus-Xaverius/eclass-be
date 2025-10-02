@@ -386,6 +386,34 @@ router.get("/profile", authenticateToken, async (req, res) => {
   }
 });
 
+// ========================== GET USER LIST (id dan nama saja, untuk autocomplete) ==========================
+router.get(
+  "/simple",
+  authenticateToken,
+  authorizeRole("Admin"),
+  async (req, res) => {
+    try {
+      const { role } = req.query; 
+
+      const whereClause = { deleted_at: null };
+      if (role) {
+        whereClause.role = role;
+      }
+
+      const users = await User.findAll({
+        where: whereClause,
+        attributes: ["id_user", "nama", "role"],
+      });
+
+      return res.status(200).send({ message: "success", users });
+    } catch (err) {
+      return res
+        .status(500)
+        .send({ message: "Terjadi kesalahan", error: err.message });
+    }
+  }
+);
+
 // ========================== GET USER BY ID ==========================
 router.get("/:id_user", authenticateToken, async (req, res) => {
   try {

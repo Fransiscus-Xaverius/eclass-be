@@ -17,11 +17,7 @@ Pelajaran.init(
     },
     kode_pelajaran: {
       type: DataTypes.STRING(20),
-      allowNull: false,
-    },
-    kelompok: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
+      allowNull: true,
     },
     created_at: {
       type: DataTypes.DATE,

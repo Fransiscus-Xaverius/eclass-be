@@ -27,7 +27,7 @@ Kelas.init(
       type: DataTypes.INTEGER,
       allowNull: true,
       references: {
-        model: "users", // relasi ke tabel users
+        model: "users",
         key: "id_user",
       },
     },
