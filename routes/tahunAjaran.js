@@ -55,6 +55,26 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
+// ========================== GET SIMPLE (untuk autocomplete) ==========================
+router.get("/simple", authenticateToken, async (req, res) => {
+  try {
+    const tahunAjaran = await TahunAjaran.findAll({
+      attributes: ["id_tahun_ajaran", "nama"],
+      order: [["start_date", "DESC"]],
+    });
+
+    return res.status(200).send({
+      message: "success",
+      data: tahunAjaran,
+    });
+  } catch (err) {
+    return res.status(500).send({
+      message: "Terjadi kesalahan",
+      error: err.message,
+    });
+  }
+});
+
 // ========================== GET BY ID ==========================
 router.get("/:id_tahun_ajaran", authenticateToken, async (req, res) => {
   try {

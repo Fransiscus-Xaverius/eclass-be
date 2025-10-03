@@ -390,7 +390,6 @@ router.get("/profile", authenticateToken, async (req, res) => {
 router.get(
   "/simple",
   authenticateToken,
-  authorizeRole("Admin"),
   async (req, res) => {
     try {
       const { role } = req.query; 

@@ -74,6 +74,26 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
+// ========================== GET SIMPLE (untuk autocomplete) ==========================
+router.get("/simple", authenticateToken, async (req, res) => {
+  try {
+    const kelas = await Kelas.findAll({
+      attributes: ["id_kelas", "nama_kelas"],
+      where: { deleted_at: null },
+    });
+
+    res.json({
+      message: "Berhasil ambil data kelas (simple)",
+      data: kelas,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Terjadi kesalahan",
+      error: err.message,
+    });
+  }
+});
+
 // ========================== GET BY ID ==========================
 router.get("/:id_kelas", authenticateToken, async (req, res) => {
   try {

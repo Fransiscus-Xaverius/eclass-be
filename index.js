@@ -20,31 +20,27 @@ const kelasTahunAjaranRouter = require("./routes/kelasTahunAjaran");
 const jadwalPelajaranRouter = require("./routes/jadwalPelajaran");
 const pengumumanRouter = require("./routes/pengumuman");
 const komentarRoutes = require("./routes/komentar");
+
 const Kelas = require("./model/Kelas");
 const User = require("./model/User");
 const Komentar = require("./model/Komentar");
 const Pengumuman = require("./model/Pengumuman");
+const KelasTahunAjaran = require("./model/KelasTahunAjaran");
+const TahunAjaran = require("./model/TahunAjaran");
+const Pelajaran = require("./model/Pelajaran");
 
 // Relation
 Kelas.belongsTo(User, { foreignKey: "wali_kelas", as: "wali" });
 User.hasMany(Kelas, { foreignKey: "wali_kelas", as: "kelas_wali" });
-Komentar.belongsTo(Pengumuman, {
-  foreignKey: "id_pengumuman",
-  as: "pengumuman",
-  onDelete: "CASCADE",
-});
-Pengumuman.hasMany(Komentar, {
-  foreignKey: "id_pengumuman",
-  as: "komentar",
-});
-Komentar.belongsTo(User, {
-  foreignKey: "id_created_by",
-  as: "user",
-});
-User.hasMany(Komentar, {
-  foreignKey: "id_created_by",
-  as: "komentar",
-});
+Komentar.belongsTo(Pengumuman, { foreignKey: "id_pengumuman", as: "pengumuman", onDelete: "CASCADE" });
+Pengumuman.hasMany(Komentar, { foreignKey: "id_pengumuman", as: "komentar" });
+Komentar.belongsTo(User, { foreignKey: "id_created_by", as: "user" });
+User.hasMany(Komentar, { foreignKey: "id_created_by", as: "komentar" });
+KelasTahunAjaran.belongsTo(TahunAjaran, { foreignKey: "id_tahun_ajaran" });
+KelasTahunAjaran.belongsTo(Kelas, { foreignKey: "id_kelas" });
+KelasTahunAjaran.belongsTo(Pelajaran, { foreignKey: "id_pelajaran" });
+KelasTahunAjaran.belongsTo(User, { as: "GuruPengampu", foreignKey: "guru_pengampu" });
+
 
 // ================= TEST ROUTE =================
 app.get("/test", (req, res) => {
