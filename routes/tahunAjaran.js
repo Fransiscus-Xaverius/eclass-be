@@ -59,13 +59,19 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/simple", authenticateToken, async (req, res) => {
   try {
     const tahunAjaran = await TahunAjaran.findAll({
-      attributes: ["id_tahun_ajaran", "nama"],
+      attributes: ["id_tahun_ajaran", "nama", "semester"],
       order: [["start_date", "DESC"]],
+      raw: true,
     });
+
+    const formatted = tahunAjaran.map((item) => ({
+      id_tahun_ajaran: item.id_tahun_ajaran,
+      nama: `${item.nama} - ${item.semester}`,
+    }));
 
     return res.status(200).send({
       message: "success",
-      data: tahunAjaran,
+      data: formatted,
     });
   } catch (err) {
     return res.status(500).send({

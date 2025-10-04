@@ -21,7 +21,9 @@ router.post("/", authenticateToken, authorizeRole("Admin"), async (req, res) => 
 
     return res.status(201).send({ message: "success", data: newData });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
@@ -31,16 +33,36 @@ router.get("/", authenticateToken, async (req, res) => {
     const data = await KelasTahunAjaran.findAll({
       where: { deleted_at: null },
       include: [
-        { model: Kelas, as: "kelas", attributes: ["id_kelas", "nama_kelas"] },
-        { model: TahunAjaran, as: "tahunAjaran", attributes: ["id_tahun_ajaran", "nama", "semester"] },
-        { model: Pelajaran, as: "pelajaran", attributes: ["id_pelajaran", "nama_pelajaran"] },
-        { model: User, as: "guru", attributes: ["id_user", "nama"] },
+        { model: Kelas, as: "Kelas", attributes: ["id_kelas", "nama_kelas"] },
+        {
+          model: TahunAjaran,
+          as: "TahunAjaran",
+          attributes: ["id_tahun_ajaran", "nama", "semester"],
+        },
+        {
+          model: Pelajaran,
+          as: "Pelajaran",
+          attributes: ["id_pelajaran", "nama_pelajaran"],
+        },
+        { model: User, as: "GuruPengampu", attributes: ["id_user", "nama"] },
       ],
+      raw: true,
+      nest: true,
     });
 
-    return res.status(200).send({ message: "success", data });
+    const formatted = data.map((item) => ({
+      ...item,
+      TahunAjaran: {
+        id_tahun_ajaran: item.TahunAjaran.id_tahun_ajaran,
+        nama: `${item.TahunAjaran.nama} - ${item.TahunAjaran.semester}`,
+      },
+    }));
+
+    return res.status(200).send({ message: "success", data: formatted });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
@@ -50,18 +72,38 @@ router.get("/:id", authenticateToken, async (req, res) => {
     const data = await KelasTahunAjaran.findOne({
       where: { id_kelas_tahun_ajaran: req.params.id, deleted_at: null },
       include: [
-        { model: Kelas, as: "kelas", attributes: ["id_kelas", "nama_kelas"] },
-        { model: TahunAjaran, as: "tahunAjaran", attributes: ["id_tahun_ajaran", "nama", "semester"] },
-        { model: Pelajaran, as: "pelajaran", attributes: ["id_pelajaran", "nama_pelajaran"] },
-        { model: User, as: "guru", attributes: ["id_user", "nama"] },
+        { model: Kelas, as: "Kelas", attributes: ["id_kelas", "nama_kelas"] },
+        {
+          model: TahunAjaran,
+          as: "TahunAjaran",
+          attributes: ["id_tahun_ajaran", "nama", "semester"],
+        },
+        {
+          model: Pelajaran,
+          as: "Pelajaran",
+          attributes: ["id_pelajaran", "nama_pelajaran"],
+        },
+        { model: User, as: "GuruPengampu", attributes: ["id_user", "nama"] },
       ],
+      raw: true,
+      nest: true,
     });
 
     if (!data) return res.status(404).send({ message: "Data tidak ditemukan" });
 
-    return res.status(200).send({ message: "success", data });
+    const formatted = {
+      ...data,
+      TahunAjaran: {
+        id_tahun_ajaran: data.TahunAjaran.id_tahun_ajaran,
+        nama: `${data.TahunAjaran.nama} - ${data.TahunAjaran.semester}`,
+      },
+    };
+
+    return res.status(200).send({ message: "success", data: formatted });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
@@ -79,7 +121,9 @@ router.put("/:id", authenticateToken, authorizeRole("Admin"), async (req, res) =
 
     return res.status(200).send({ message: "success" });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
@@ -95,7 +139,9 @@ router.delete("/:id", authenticateToken, authorizeRole("Admin"), async (req, res
 
     return res.status(200).send({ message: "success" });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
