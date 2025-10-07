@@ -11,17 +11,14 @@ router.post(
   authorizeRole(["Admin"]),
   async (req, res) => {
     try {
-      const { nama, semester, start_date, end_date, is_aktif } = req.body;
+      const { nama, start_date, end_date, is_aktif } = req.body;
 
-      if (!nama || !semester || !start_date || !end_date) {
-        return res
-          .status(400)
-          .send({ message: "Semua field wajib diisi" });
+      if (!nama || !start_date || !end_date) {
+        return res.status(400).send({ message: "Semua field wajib diisi" });
       }
 
       const tahunAjaran = await TahunAjaran.create({
         nama,
-        semester,
         start_date,
         end_date,
         is_aktif: is_aktif || 0,
@@ -47,7 +44,7 @@ router.get("/", authenticateToken, async (req, res) => {
       order: [["start_date", "DESC"]],
     });
 
-    return res.status(200).send({ message: "success", tahunAjaran });
+    return res.status(200).send({ message: "success", data: tahunAjaran });
   } catch (err) {
     return res
       .status(500)
@@ -59,14 +56,14 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/simple", authenticateToken, async (req, res) => {
   try {
     const tahunAjaran = await TahunAjaran.findAll({
-      attributes: ["id_tahun_ajaran", "nama", "semester"],
+      attributes: ["id_tahun_ajaran", "nama"],
       order: [["start_date", "DESC"]],
       raw: true,
     });
 
     const formatted = tahunAjaran.map((item) => ({
       id_tahun_ajaran: item.id_tahun_ajaran,
-      nama: `${item.nama} - ${item.semester}`,
+      nama: item.nama,
     }));
 
     return res.status(200).send({
@@ -91,7 +88,7 @@ router.get("/:id_tahun_ajaran", authenticateToken, async (req, res) => {
       return res.status(404).send({ message: "Tahun ajaran tidak ditemukan" });
     }
 
-    return res.status(200).send({ message: "success", tahunAjaran });
+    return res.status(200).send({ message: "success", data: tahunAjaran });
   } catch (err) {
     return res
       .status(500)
@@ -113,7 +110,13 @@ router.put(
         return res.status(404).send({ message: "Tahun ajaran tidak ditemukan" });
       }
 
-      const updateData = { ...req.body, updated_at: new Date() };
+      const updateData = {
+        nama: req.body.nama,
+        start_date: req.body.start_date,
+        end_date: req.body.end_date,
+        is_aktif: req.body.is_aktif ?? tahunAjaran.is_aktif,
+        updated_at: new Date(),
+      };
 
       await tahunAjaran.update(updateData);
 

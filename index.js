@@ -20,6 +20,7 @@ const kelasTahunAjaranRouter = require("./routes/kelasTahunAjaran");
 const jadwalPelajaranRouter = require("./routes/jadwalPelajaran");
 const pengumumanRouter = require("./routes/pengumuman");
 const komentarRoutes = require("./routes/komentar");
+const kelasSiswaRoutes = require("./routes/kelasSiswa");
 
 // ================= IMPORT MODEL =================
 const Kelas = require("./model/Kelas");
@@ -30,24 +31,38 @@ const KelasTahunAjaran = require("./model/KelasTahunAjaran");
 const TahunAjaran = require("./model/TahunAjaran");
 const Pelajaran = require("./model/Pelajaran");
 const JadwalPelajaran = require("./model/JadwalPelajaran");
+const KelasSiswa = require("./model/KelasSiswa");
 
 // ================= RELATION =================
 Kelas.belongsTo(User, { foreignKey: "wali_kelas", as: "wali" });
 User.hasMany(Kelas, { foreignKey: "wali_kelas", as: "kelas_wali" });
 
+// --- Komentar & Pengumuman ---
 Komentar.belongsTo(Pengumuman, { foreignKey: "id_pengumuman", as: "pengumuman", onDelete: "CASCADE" });
 Pengumuman.hasMany(Komentar, { foreignKey: "id_pengumuman", as: "komentar" });
 
 Komentar.belongsTo(User, { foreignKey: "id_created_by", as: "user" });
 User.hasMany(Komentar, { foreignKey: "id_created_by", as: "komentar" });
 
+// --- Kelas Tahun Ajaran ---
 KelasTahunAjaran.belongsTo(TahunAjaran, { foreignKey: "id_tahun_ajaran" });
 KelasTahunAjaran.belongsTo(Kelas, { foreignKey: "id_kelas" });
 KelasTahunAjaran.belongsTo(Pelajaran, { foreignKey: "id_pelajaran" });
 KelasTahunAjaran.belongsTo(User, { as: "GuruPengampu", foreignKey: "guru_pengampu" });
 
+// --- Jadwal Pelajaran ---
 JadwalPelajaran.belongsTo(KelasTahunAjaran, { foreignKey: "id_kelas_tahun_ajaran", as: "kelasTahunAjaran" });
 KelasTahunAjaran.hasMany(JadwalPelajaran, { foreignKey: "id_kelas_tahun_ajaran", as: "jadwal" });
+
+// --- Kelas Siswa ---
+KelasSiswa.belongsTo(Kelas, { foreignKey: "id_kelas", as: "Kelas" });
+KelasSiswa.belongsTo(TahunAjaran, { foreignKey: "id_tahun_ajaran", as: "TahunAjaran" });
+KelasSiswa.belongsTo(User, { foreignKey: "id_siswa", as: "Siswa" });
+
+Kelas.hasMany(KelasSiswa, { foreignKey: "id_kelas", as: "KelasSiswa" });
+TahunAjaran.hasMany(KelasSiswa, { foreignKey: "id_tahun_ajaran", as: "KelasSiswa" });
+User.hasMany(KelasSiswa, { foreignKey: "id_siswa", as: "SiswaKelas" });
+
 
 // ================= TEST ROUTE =================
 app.get("/test", (req, res) => {
@@ -63,6 +78,7 @@ app.use("/api/kelas", kelasRouter);
 app.use("/api/pelajaran", pelajaranRouter);
 app.use("/api/kelas-tahun-ajaran", kelasTahunAjaranRouter);
 app.use("/api/jadwal-pelajaran", jadwalPelajaranRouter);
+app.use("/api/kelas-siswa", kelasSiswaRoutes);
 
 // Static folder untuk upload file
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

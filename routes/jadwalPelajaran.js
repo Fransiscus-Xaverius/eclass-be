@@ -39,7 +39,7 @@ router.get("/", authenticateToken, async (req, res) => {
             {
               model: TahunAjaran,
               as: "TahunAjaran",
-              attributes: ["id_tahun_ajaran", "nama", "semester"],
+              attributes: ["id_tahun_ajaran", "nama"],
             },
             {
               model: Pelajaran,
@@ -66,7 +66,7 @@ router.get("/", authenticateToken, async (req, res) => {
         TahunAjaran: plain.kelasTahunAjaran?.TahunAjaran
           ? {
               id_tahun_ajaran: plain.kelasTahunAjaran.TahunAjaran.id_tahun_ajaran,
-              nama: `${plain.kelasTahunAjaran.TahunAjaran.nama} - ${plain.kelasTahunAjaran.TahunAjaran.semester}`,
+              nama: `${plain.kelasTahunAjaran.TahunAjaran.nama}`,
             }
           : null,
       };
@@ -94,7 +94,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
             {
               model: TahunAjaran,
               as: "TahunAjaran",
-              attributes: ["id_tahun_ajaran", "nama", "semester"],
+              attributes: ["id_tahun_ajaran", "nama"],
             },
             {
               model: Pelajaran,
@@ -122,7 +122,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
       GuruPengampu: data.KelasTahunAjaran.GuruPengampu,
       TahunAjaran: {
         id_tahun_ajaran: data.KelasTahunAjaran.TahunAjaran.id_tahun_ajaran,
-        nama: `${data.KelasTahunAjaran.TahunAjaran.nama} - ${data.KelasTahunAjaran.TahunAjaran.semester}`,
+        nama: `${data.KelasTahunAjaran.TahunAjaran.nama}`,
       },
     };
 

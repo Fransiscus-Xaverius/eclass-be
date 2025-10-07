@@ -70,7 +70,10 @@ router.post(
       }
 
       const existingUser = await User.findOne({
-        where: { [Op.or]: [{ username }, { email }] },
+        where: {
+          deleted_at: null,
+          [Op.or]: [{ username }, { email }],
+        },
       });
       if (existingUser) {
         return res
@@ -158,6 +161,7 @@ router.post(
 
       const existingUsers = await User.findAll({
         where: {
+          deleted_at: null,
           [Op.or]: [
             { username: { [Op.in]: usernames } },
             { email: { [Op.in]: emails } },
@@ -358,7 +362,7 @@ router.get("/", authenticateToken, authorizeRole("Admin"), async (req, res) => {
       where: { deleted_at: null },
       attributes: { exclude: ["password", "otp_code", "otp_expires", "created_at", "updated_at", "deleted_at"], },
     });
-    return res.status(200).send({ message: "success", users });
+    return res.status(200).send({ message: "success", data: users });
   } catch (err) {
     return res.status(500).send({ message: "Terjadi kesalahan", error: err });
   }
@@ -378,7 +382,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
         .status(404)
         .send({ message: "User tidak ditemukan atau sudah dihapus" });
 
-    return res.status(200).send({ message: "success", user });
+    return res.status(200).send({ message: "success", data: user });
   } catch (err) {
     return res
       .status(500)
@@ -404,7 +408,7 @@ router.get(
         attributes: ["id_user", "nama", "role"],
       });
 
-      return res.status(200).send({ message: "success", users });
+      return res.status(200).send({ message: "success", data: users });
     } catch (err) {
       return res
         .status(500)
@@ -429,7 +433,7 @@ router.get("/:id_user", authenticateToken, async (req, res) => {
         .status(404)
         .send({ message: "User tidak ditemukan atau sudah dihapus" });
 
-    return res.status(200).send({ message: "success", user });
+    return res.status(200).send({ message: "success", data: user });
   } catch (err) {
     return res.status(500).send({ message: "Terjadi kesalahan", error: err });
   }

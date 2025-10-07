@@ -15,10 +15,6 @@ TahunAjaran.init(
       type: DataTypes.STRING(50),
       allowNull: false,
     },
-    semester: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-    },
     is_aktif: {
       type: DataTypes.TINYINT,
       allowNull: false,

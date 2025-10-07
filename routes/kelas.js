@@ -27,7 +27,7 @@ router.post(
         updated_at: new Date(),
       });
 
-      return res.status(201).send({ message: "Kelas berhasil dibuat", kelas });
+      return res.status(201).send({ message: "Kelas berhasil dibuat", data: kelas });
     } catch (err) {
       return res
         .status(500)
@@ -59,7 +59,7 @@ router.get("/", authenticateToken, async (req, res) => {
       created_at: k.created_at,
       updated_at: k.updated_at,
       deleted_at: k.deleted_at,
-      nama_wali_kelas: k.wali ? k.wali.nama : null, // hanya nama wali
+      nama_wali_kelas: k.wali ? k.wali.nama : null, 
     }));
 
     res.json({
@@ -151,7 +151,7 @@ router.put(
 
       await kelas.update(updateData);
 
-      return res.status(200).send({ message: "Kelas berhasil diupdate", kelas });
+      return res.status(200).send({ message: "Kelas berhasil diupdate", data: kelas });
     } catch (err) {
       return res
         .status(500)

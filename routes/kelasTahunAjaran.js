@@ -37,7 +37,7 @@ router.get("/", authenticateToken, async (req, res) => {
         {
           model: TahunAjaran,
           as: "TahunAjaran",
-          attributes: ["id_tahun_ajaran", "nama", "semester"],
+          attributes: ["id_tahun_ajaran", "nama"],
         },
         {
           model: Pelajaran,
@@ -54,7 +54,7 @@ router.get("/", authenticateToken, async (req, res) => {
       ...item,
       TahunAjaran: {
         id_tahun_ajaran: item.TahunAjaran.id_tahun_ajaran,
-        nama: `${item.TahunAjaran.nama} - ${item.TahunAjaran.semester}`,
+        nama: `${item.TahunAjaran.nama}`,
       },
     }));
 
@@ -76,7 +76,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
         {
           model: TahunAjaran,
           as: "TahunAjaran",
-          attributes: ["id_tahun_ajaran", "nama", "semester"],
+          attributes: ["id_tahun_ajaran", "nama"],
         },
         {
           model: Pelajaran,
@@ -95,7 +95,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
       ...data,
       TahunAjaran: {
         id_tahun_ajaran: data.TahunAjaran.id_tahun_ajaran,
-        nama: `${data.TahunAjaran.nama} - ${data.TahunAjaran.semester}`,
+        nama: `${data.TahunAjaran.nama}`,
       },
     };
 
