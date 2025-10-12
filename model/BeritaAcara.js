@@ -25,7 +25,7 @@ BeritaAcara.init(
     },
     deskripsi: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
     },
     tanggal: {
       type: DataTypes.DATEONLY,

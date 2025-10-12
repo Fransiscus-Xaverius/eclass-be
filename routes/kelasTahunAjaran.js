@@ -162,8 +162,11 @@ router.get("/pelajaran/:id_tahun_ajaran", authenticateToken, async (req, res) =>
 // ================== GET BY ID ==================
 router.get("/:id", authenticateToken, async (req, res) => {
   try {
+    const { id } = req.params;
+    const { id_user, role } = req.user;
+
     const data = await KelasTahunAjaran.findOne({
-      where: { id_kelas_tahun_ajaran: req.params.id, deleted_at: null },
+      where: { id_kelas_tahun_ajaran: id, deleted_at: null },
       include: [
         { model: Kelas, as: "Kelas", attributes: ["id_kelas", "nama_kelas"] },
         {
@@ -182,8 +185,33 @@ router.get("/:id", authenticateToken, async (req, res) => {
       nest: true,
     });
 
-    if (!data) return res.status(404).send({ message: "Data tidak ditemukan" });
+    if (!data) {
+      return res.status(404).send({ message: "Data tidak ditemukan" });
+    }
 
+    // ================== CEK AKSES ==================
+    if (role.toLowerCase() === "guru") {
+      if (data.GuruPengampu.id_user !== id_user) {
+        return res.status(403).send({ message: "Anda tidak memiliki akses ke kelas ini" });
+      }
+    } else if (role.toLowerCase() === "siswa") {
+      const kelasSiswa = await KelasSiswa.findOne({
+        where: {
+          id_siswa: id_user,
+          id_kelas: data.Kelas.id_kelas,
+          id_tahun_ajaran: data.TahunAjaran.id_tahun_ajaran,
+          deleted_at: null,
+        },
+      });
+
+      if (!kelasSiswa) {
+        return res.status(403).send({ message: "Anda tidak memiliki akses ke kelas ini" });
+      }
+    } else if (role.toLowerCase() !== "admin") {
+      return res.status(403).send({ message: "Role tidak dikenali" });
+    }
+
+    // ================== RESPONSE ==================
     const formatted = {
       ...data,
       TahunAjaran: {
@@ -194,9 +222,11 @@ router.get("/:id", authenticateToken, async (req, res) => {
 
     return res.status(200).send({ message: "success", data: formatted });
   } catch (err) {
-    return res
-      .status(500)
-      .send({ message: "Terjadi kesalahan", error: err.message });
+    console.error("Error get kelas_tahun_ajaran by id:", err);
+    return res.status(500).send({
+      message: "Terjadi kesalahan",
+      error: err.message,
+    });
   }
 });
 
@@ -204,19 +234,33 @@ router.get("/:id", authenticateToken, async (req, res) => {
 router.put("/:id", authenticateToken, authorizeRole("Admin"), async (req, res) => {
   try {
     const { id_tahun_ajaran, id_kelas, id_pelajaran, guru_pengampu } = req.body;
+    const { id } = req.params;
 
-    const [updated] = await KelasTahunAjaran.update(
-      { id_tahun_ajaran, id_kelas, id_pelajaran, guru_pengampu },
-      { where: { id_kelas_tahun_ajaran: req.params.id } }
-    );
+    // Validasi ID
+    const idNum = Number(id);
+    if (!idNum) return res.status(400).send({ message: "Parameter id tidak valid" });
 
-    if (!updated) return res.status(404).send({ message: "Data tidak ditemukan" });
+    const existing = await KelasTahunAjaran.findOne({
+      where: { id_kelas_tahun_ajaran: idNum, deleted_at: null },
+    });
+
+    if (!existing) {
+      return res.status(404).send({ message: "Data tidak ditemukan atau sudah dihapus" });
+    }
+
+    // Update data
+    await existing.update({
+      id_tahun_ajaran,
+      id_kelas,
+      id_pelajaran,
+      guru_pengampu,
+      updated_at: new Date(),
+    });
 
     return res.status(200).send({ message: "success" });
   } catch (err) {
-    return res
-      .status(500)
-      .send({ message: "Terjadi kesalahan", error: err.message });
+    console.error("Error update kelas_tahun_ajaran:", err);
+    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
