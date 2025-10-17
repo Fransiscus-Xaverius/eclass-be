@@ -25,6 +25,7 @@ const kelasSiswaRoutes = require("./routes/kelasSiswa");
 const beritaAcaraRoutes = require("./routes/beritaAcara");
 const modulRoutes = require("./routes/modul");
 const pengumpulanModulRoutes = require("./routes/pengumpulanModul");
+const nilaiRoutes = require("./routes/nilai");
 
 // ================= IMPORT MODEL =================
 const User = require("./model/User");
@@ -41,6 +42,7 @@ const Presensi = require("./model/Presensi");
 const BeritaAcara = require("./model/BeritaAcara");
 const Modul = require("./model/Modul");
 const PengumpulanModul = require("./model/PengumpulanModul");
+const Nilai = require("./model/Nilai");
 
 // ================= RELATION =================
 
@@ -98,6 +100,15 @@ KelasTahunAjaran.hasMany(Modul, { foreignKey: "id_kelas_tahun_ajaran", as: "modu
 // --- Pengumpulan Modul ---
 PengumpulanModul.belongsTo(User, { foreignKey: "id_siswa", as: "siswa" });
 
+// --- Nilai ---
+Nilai.belongsTo(User, { foreignKey: "id_siswa", as: "siswa" });
+Nilai.belongsTo(KelasTahunAjaran, { foreignKey: "id_kelas_tahun_ajaran", as: "kelasTahunAjaran" });
+Nilai.belongsTo(Modul, { foreignKey: "id_modul", as: "modul" });
+
+User.hasMany(Nilai, { foreignKey: "id_siswa", as: "nilaiList" });
+KelasTahunAjaran.hasMany(Nilai, { foreignKey: "id_kelas_tahun_ajaran", as: "nilaiList" });
+Modul.hasMany(Nilai, { foreignKey: "id_modul", as: "nilaiModulList" });
+
 // ================= TEST ROUTE =================
 app.get("/test", (req, res) => {
   return res.status(200).send("Hello World!");
@@ -117,6 +128,7 @@ app.use("/api/kelas-siswa", kelasSiswaRoutes);
 app.use("/api/berita-acara", beritaAcaraRoutes);
 app.use("/api/modul", modulRoutes);
 app.use("/api/pengumpulan-modul", pengumpulanModulRoutes);
+app.use("/api/nilai", nilaiRoutes);
 
 // Static folder untuk upload file
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

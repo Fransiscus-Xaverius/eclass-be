@@ -301,4 +301,65 @@ router.delete(
   }
 );
 
+// ================== DOWNLOAD / CETAK RAPOR BERDASARKAN TAHUN AJARAN ==================
+router.get(
+  "/download-rapor-tahun-ajaran/:id_tahun_ajaran/:tipe",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id_tahun_ajaran, tipe } = req.params;
+      const { id_kelas } = req.query; // optional filter kelas
+
+      if (!["ganjil", "genap"].includes(tipe)) {
+        return res.status(400).send({ message: "Tipe rapor harus ganjil atau genap" });
+      }
+
+      const whereClause = {
+        id_tahun_ajaran,
+        deleted_at: null,
+      };
+      if (id_kelas) whereClause.id_kelas = id_kelas;
+
+      const kelasSiswaList = await KelasSiswa.findAll({
+        where: whereClause,
+        include: [
+          { model: User, as: "Siswa", attributes: ["id_user", "nama"] },
+          { model: Kelas, as: "Kelas", attributes: ["nama_kelas"] },
+          { model: TahunAjaran, as: "TahunAjaran", attributes: ["nama"] },
+        ],
+      });
+
+      if (!kelasSiswaList.length) {
+        return res.status(404).send({ message: "Tidak ada siswa ditemukan untuk tahun ajaran ini" });
+      }
+
+      // Ambil file rapor pertama sebagai contoh (jika ingin zip semua, perlu zip library)
+      const siswa = kelasSiswaList[0];
+      const fieldName = tipe === "ganjil" ? "rapor_ganjil" : "rapor_genap";
+      const fileName = siswa[fieldName];
+
+      if (!fileName) {
+        return res.status(400).send({ message: `Rapor ${tipe} siswa ${siswa.Siswa.nama} belum diupload` });
+      }
+
+      const filePath = path.join(__dirname, "../uploads/rapor", fileName);
+      if (!fs.existsSync(filePath)) {
+        return res.status(400).send({ message: "File rapor tidak ditemukan di server" });
+      }
+
+      const downloadName = `${siswa.Siswa.nama}_rapor_${tipe}${path.extname(fileName)}`;
+
+      res.download(filePath, downloadName, (err) => {
+        if (err) {
+          console.error("Error download rapor:", err);
+          return res.status(500).send({ message: "Gagal mendownload file", error: err.message });
+        }
+      });
+    } catch (err) {
+      console.error("Download rapor error:", err);
+      return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    }
+  }
+);
+
 module.exports = router;
