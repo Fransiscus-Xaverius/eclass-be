@@ -6,104 +6,97 @@ const Soal = require("../model/Soal");
 const Ujian = require("../model/Ujian");
 
 // ================== CREATE ==================
-router.post(
-  "/",
-  authenticateToken,
-  authorizeRole(["Siswa"]),
-  async (req, res) => {
+router.post("/", authenticateToken, authorizeRole(["Siswa"]), async (req, res) => {
+  try {
+    const { id_soal, jawaban, status, keterangan } = req.body;
+    const id_user = req.user.id_user; // dari token login
+
+    // ================== CEK INPUT WAJIB ==================
+    if (!id_soal) {
+      return res.status(400).send({ message: "id_soal wajib ada" });
+    }
+
+    // ================== CEK SOAL ==================
+    const soal = await Soal.findByPk(id_soal);
+    if (!soal || soal.deleted_at) {
+      return res.status(404).send({ message: "Soal tidak ditemukan" });
+    }
+
+    // ================== CEK UJIAN ==================
+    const ujian = await Ujian.findByPk(soal.id_ujian);
+    if (!ujian || ujian.deleted_at) {
+      return res.status(404).send({ message: "Ujian tidak ditemukan" });
+    }
+
+    // ================== CEK SISWA TERDAFTAR ==================
+    let listSiswa = [];
     try {
-      const { id_soal, jawaban, status, keterangan } = req.body;
-      const id_user = req.user.id_user; // diambil dari token login
+      listSiswa =
+        typeof ujian.list_siswa === "string"
+          ? JSON.parse(ujian.list_siswa)
+          : ujian.list_siswa || [];
+    } catch {
+      listSiswa = [];
+    }
 
-      // Validasi input
-      if (!id_soal) {
-        return res.status(400).send({
-          message: "id_soal wajib ada",
-        });
-      }
-
-      // Pastikan soal ada
-      const soal = await Soal.findByPk(id_soal);
-      if (!soal || soal.deleted_at) {
-        return res.status(404).send({ message: "Soal tidak ditemukan" });
-      }
-
-      // Ambil data ujian
-      const ujian = await Ujian.findByPk(soal.id_ujian);
-      if (!ujian || ujian.deleted_at) {
-        return res.status(404).send({ message: "Ujian tidak ditemukan" });
-      }
-
-      // ================== CEK SISWA TERDAFTAR ==================
-      let listSiswa = [];
-      if (ujian.list_siswa) {
-        if (typeof ujian.list_siswa === "string") {
-          try {
-            listSiswa = JSON.parse(ujian.list_siswa);
-          } catch {
-            listSiswa = [];
-          }
-        } else {
-          listSiswa = ujian.list_siswa;
-        }
-      }
-
-      if (!Array.isArray(listSiswa) || !listSiswa.includes(id_user)) {
-        return res.status(403).send({
-          message: "Kamu tidak terdaftar dalam ujian ini, tidak dapat menjawab soal.",
-        });
-      }
-
-      // ================== CEK WAKTU UJIAN ==================
-      const now = new Date();
-      const start = new Date(ujian.start_date);
-      const end = new Date(ujian.end_date);
-
-      if (now < start) {
-        return res.status(403).send({
-          message: "Ujian belum dimulai. Tunggu hingga waktu mulai.",
-        });
-      }
-
-      if (now > end) {
-        return res.status(403).send({
-          message: "Waktu ujian sudah berakhir.",
-        });
-      }
-
-      // ================== CEK SUDAH MENJAWAB ==================
-      const existingAnswer = await JawabanUjian.findOne({
-        where: { id_user, id_soal },
-      });
-
-      if (existingAnswer) {
-        return res.status(400).send({
-          message: "Kamu sudah menjawab soal ini.",
-        });
-      }
-
-      // ================== SIMPAN JAWABAN ==================
-      const newJawaban = await JawabanUjian.create({
-        id_user,
-        id_soal,
-        jawaban: jawaban || null,       // <-- simpan jawaban
-        status,
-        keterangan: keterangan || null,
-      });
-
-      return res.status(201).send({
-        message: "Jawaban berhasil disimpan",
-        data: newJawaban,
-      });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).send({
-        message: "Terjadi kesalahan",
-        error: err.message,
+    if (!Array.isArray(listSiswa) || !listSiswa.includes(id_user)) {
+      return res.status(403).send({
+        message: "Kamu tidak terdaftar dalam ujian ini, tidak dapat menjawab soal.",
       });
     }
+
+    // ================== CEK WAKTU UJIAN ==================
+    const now = new Date();
+    if (now < new Date(ujian.start_date)) {
+      return res.status(403).send({ message: "Ujian belum dimulai." });
+    }
+    if (now > new Date(ujian.end_date)) {
+      return res.status(403).send({ message: "Waktu ujian sudah berakhir." });
+    }
+
+    // ================== CEK SUDAH MENJAWAB ==================
+    const existingAnswer = await JawabanUjian.findOne({
+      where: { id_user, id_soal },
+    });
+    if (existingAnswer) {
+      return res.status(400).send({ message: "Kamu sudah menjawab soal ini." });
+    }
+
+    // ================== FORMAT JAWABAN ==================
+    let formattedJawaban;
+
+    if (Array.isArray(jawaban) || typeof jawaban === "object") {
+      // simpan dalam bentuk JSON string
+      formattedJawaban = JSON.stringify(jawaban);
+    } else if (typeof jawaban === "string" || typeof jawaban === "number") {
+      formattedJawaban = String(jawaban);
+    } else if (jawaban === null || jawaban === undefined) {
+      formattedJawaban = null;
+    } else {
+      formattedJawaban = JSON.stringify(jawaban);
+    }
+
+    // ================== SIMPAN JAWABAN ==================
+    const newJawaban = await JawabanUjian.create({
+      id_user,
+      id_soal,
+      jawaban: formattedJawaban,
+      status: status || "selesai",
+      keterangan: keterangan || null,
+    });
+
+    return res.status(201).send({
+      message: "Jawaban berhasil disimpan",
+      data: newJawaban,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({
+      message: "Terjadi kesalahan",
+      error: err.message,
+    });
   }
-);
+});
 
 // ================== GET ALL (hanya Guru/Admin) ==================
 router.get(

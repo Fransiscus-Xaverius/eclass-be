@@ -7,6 +7,7 @@ const KelasSiswa = require("../model/KelasSiswa");
 const User = require("../model/User");
 const Soal = require("../model/Soal");
 const { authenticateToken, authorizeRole } = require("../middleware/auth");
+const JawabanUjian = require("../model/JawabanUjian");
 
 const getImageUrl = (req, filename) => {
   if (!filename) return null;
@@ -74,13 +75,14 @@ router.post("/", authenticateToken, authorizeRole(["Admin", "Guru"]), async (req
   }
 });
 
-// ================== GET ALL ==================
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const { id_kelas_tahun_ajaran } = req.query;
+    const userId = req.user?.id_user; // 🔹 ambil id user dari token
     const whereClause = { deleted_at: null };
 
-    if (id_kelas_tahun_ajaran) whereClause.id_kelas_tahun_ajaran = id_kelas_tahun_ajaran;
+    if (id_kelas_tahun_ajaran)
+      whereClause.id_kelas_tahun_ajaran = id_kelas_tahun_ajaran;
 
     const ujianList = await Ujian.findAll({
       where: whereClause,
@@ -93,6 +95,9 @@ router.get("/", authenticateToken, async (req, res) => {
 
     const dataWithCount = await Promise.all(
       ujianList.map(async (ujian) => {
+        const ujianJson = ujian.toJSON();
+
+        // Hitung total siswa di kelas & tahun ajaran
         const totalSiswa = await KelasSiswa.count({
           where: {
             id_kelas: ujian.kelasTahunAjaran.id_kelas,
@@ -100,14 +105,71 @@ router.get("/", authenticateToken, async (req, res) => {
             deleted_at: null,
           },
         });
-        return { ...ujian.toJSON(), totalSiswa };
+
+        // Parse list siswa ujian
+        let listSiswa = [];
+        try {
+          listSiswa = ujianJson.list_siswa
+            ? JSON.parse(ujianJson.list_siswa)
+            : [];
+        } catch {
+          listSiswa = [];
+        }
+
+        // Default
+        let status = false;
+        let notes = "Tidak terdaftar";
+
+        // 🔹 Cek apakah user ini terdaftar dalam ujian
+        const isUserTerdaftar = listSiswa.includes(userId);
+
+        if (isUserTerdaftar) {
+          // Hitung total soal untuk ujian ini
+          const totalSoal = await Soal.count({
+            where: { id_ujian: ujian.id_ujian, deleted_at: null },
+          });
+
+          // Hitung jumlah jawaban yang dibuat oleh user ini
+          const jawabanCount = await JawabanUjian.count({
+            include: [
+              {
+                model: Soal,
+                as: "Soal",
+                where: { id_ujian: ujian.id_ujian, deleted_at: null },
+                attributes: [],
+              },
+            ],
+            where: { id_user: userId, deleted_at: null },
+          });
+
+          // Jika user sudah jawab semua soal
+          const sudahMengerjakan =
+            totalSoal > 0 && jawabanCount >= totalSoal;
+
+          if (sudahMengerjakan) {
+            status = false;
+            notes = "Sudah mengerjakan";
+          } else {
+            status = true;
+            notes = null;
+          }
+        }
+
+        return {
+          ...ujianJson,
+          totalSiswa,
+          status,
+          notes,
+        };
       })
     );
 
     return res.status(200).send({ message: "success", data: dataWithCount });
   } catch (err) {
     console.error(err);
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+    return res
+      .status(500)
+      .send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
@@ -115,7 +177,8 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/:id_ujian", authenticateToken, async (req, res) => {
   try {
     const { id_ujian } = req.params;
-    const userRole = req.user?.role || null; 
+    const userRole = req.user?.role || null;
+    const idUser = req.user?.id_user;
 
     const ujian = await Ujian.findOne({
       where: { id_ujian, deleted_at: null },
@@ -142,27 +205,43 @@ router.get("/:id_ujian", authenticateToken, async (req, res) => {
     if (!ujian)
       return res.status(404).send({ message: "Ujian tidak ditemukan" });
 
-    // Dapatkan daftar siswa berdasarkan list_siswa
+    // Dapatkan daftar siswa dari list_siswa
     const siswaList = Array.isArray(ujian.list_siswa) ? ujian.list_siswa : [];
     const siswaDetail = await User.findAll({
       where: { id_user: siswaList },
       attributes: ["id_user", "nama", "email"],
     });
 
-    // Jika guru, sertakan soal + gambar_url
-    // Jika siswa, jangan kirim soalList sama sekali
+    // Hitung jumlah total soal
+    const jumlahTotalSoal = (ujian.soalList || []).length;
+
+    // Jika role = siswa, hitung jumlah soal dijawab oleh siswa tersebut
+    let jumlahSoalDijawab = 0;
+    if (userRole?.toLowerCase() === "siswa") {
+      jumlahSoalDijawab = await JawabanUjian.count({
+        where: {
+          id_user: idUser,
+          id_soal: ujian.soalList.map((s) => s.id_soal),
+          deleted_at: null,
+        },
+      });
+    }
+
+    // Siapkan daftar soal (dengan URL gambar hanya untuk guru)
     let soalWithUrl = [];
-    if (userRole.toLowerCase() === "guru") {
+    if (userRole?.toLowerCase() === "guru") {
       soalWithUrl = (ujian.soalList || []).map((soal) => ({
         ...soal.toJSON(),
         gambar_url: soal.gambar ? getImageUrl(req, soal.gambar) : null,
       }));
     }
 
-    // Susun respons sesuai role
+    // Susun respons
     const responseData = {
       ...ujian.toJSON(),
-      soalList: userRole.toLowerCase() === "guru" ? soalWithUrl : undefined,
+      soalList: userRole?.toLowerCase() === "guru" ? soalWithUrl : undefined,
+      jumlah_total_soal: jumlahTotalSoal,
+      jumlah_soal_dijawab: jumlahSoalDijawab,
       jumlah_siswa: siswaDetail.length,
       siswa_detail: siswaDetail,
     };
