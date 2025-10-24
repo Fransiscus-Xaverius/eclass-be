@@ -8,6 +8,7 @@ const User = require("../model/User");
 const Soal = require("../model/Soal");
 const { authenticateToken, authorizeRole } = require("../middleware/auth");
 const JawabanUjian = require("../model/JawabanUjian");
+const Pelajaran = require("../model/Pelajaran");
 
 const getImageUrl = (req, filename) => {
   if (!filename) return null;
@@ -170,6 +171,122 @@ router.get("/", authenticateToken, async (req, res) => {
     return res
       .status(500)
       .send({ message: "Terjadi kesalahan", error: err.message });
+  }
+});
+
+// ================== GET PERIKSA UJIAN ==================
+router.get("/:id_ujian/periksa", authenticateToken, authorizeRole(["Guru", "Admin"]), async (req, res) => {
+  try {
+    const { id_ujian } = req.params;
+
+    // Ambil ujian beserta relasi Kelas, Pelajaran & Soal
+    const ujian = await Ujian.findOne({
+      where: { id_ujian, deleted_at: null },
+      include: [
+        {
+          model: KelasTahunAjaran,
+          as: "kelasTahunAjaran",
+          include: [
+            {
+              model: Pelajaran,
+              as: "Pelajaran", 
+              attributes: ["id_pelajaran", "nama_pelajaran"],
+              required: false,
+            },
+          ],
+        },
+        {
+          model: Soal,
+          as: "soalList",
+          where: { deleted_at: null },
+          required: false,
+          attributes: ["id_soal", "score", "jawaban_benar"],
+        },
+      ],
+    });
+
+    if (!ujian) {
+      return res.status(404).send({ message: "Ujian tidak ditemukan" });
+    }
+
+    // Parse list siswa dari ujian
+    let listSiswa = [];
+    try {
+      listSiswa = Array.isArray(ujian.list_siswa)
+        ? ujian.list_siswa
+        : JSON.parse(ujian.list_siswa || "[]");
+    } catch {
+      listSiswa = [];
+    }
+
+    if (listSiswa.length === 0) {
+      return res.status(200).send({
+        message: "success",
+        data: {
+          ujian,
+          siswa: [],
+        },
+      });
+    }
+
+    // Ambil detail siswa
+    const siswaList = await User.findAll({
+      where: { id_user: listSiswa, deleted_at: null },
+      attributes: ["id_user", "nis", "nisn", "nama"],
+    });
+
+    // Ambil semua jawaban ujian
+    const jawabanList = await JawabanUjian.findAll({
+      include: [
+        {
+          model: Soal,
+          as: "Soal",
+          where: { id_ujian, deleted_at: null },
+          attributes: ["id_soal", "score", "jawaban_benar"],
+        },
+      ],
+      where: { id_user: listSiswa, deleted_at: null },
+    });
+
+    // Hitung nilai total per siswa
+    const nilaiMap = {};
+    jawabanList.forEach((jawaban) => {
+      const userId = jawaban.id_user;
+      if (!nilaiMap[userId]) nilaiMap[userId] = 0;
+      nilaiMap[userId] += jawaban.nilai || 0;
+    });
+
+    // Susun hasil akhir
+    const hasil = siswaList.map((s) => ({
+      id_user: s.id_user,
+      nis: s.nis,
+      nisn: s.nisn,
+      nama: s.nama,
+      nilai: nilaiMap[s.id_user] || 0,
+    }));
+
+    // Response akhir
+    return res.status(200).send({
+      message: "success",
+      data: {
+        ujian: {
+          id_ujian: ujian.id_ujian,
+          jenis_ujian: ujian.jenis_ujian,
+          start_date: ujian.start_date,
+          end_date: ujian.end_date,
+          total_soal: ujian.soalList.length,
+          kelas_tahun_ajaran: ujian.kelasTahunAjaran,
+          nama_pelajaran: ujian.kelasTahunAjaran?.Pelajaran?.nama_pelajaran || null,
+        },
+        siswa: hasil,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({
+      message: "Terjadi kesalahan",
+      error: err.message,
+    });
   }
 });
 

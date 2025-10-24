@@ -6,10 +6,10 @@ const Soal = require("../model/Soal");
 const Ujian = require("../model/Ujian");
 
 // ================== CREATE ==================
-router.post("/", authenticateToken, authorizeRole(["Siswa"]), async (req, res) => {
+router.post("/", authenticateToken, authorizeRole("Siswa"), async (req, res) => {
   try {
     const { id_soal, jawaban, status, keterangan } = req.body;
-    const id_user = req.user.id_user; // dari token login
+    const id_user = req.user.id_user;
 
     // ================== CEK INPUT WAJIB ==================
     if (!id_soal) {
@@ -64,16 +64,56 @@ router.post("/", authenticateToken, authorizeRole(["Siswa"]), async (req, res) =
 
     // ================== FORMAT JAWABAN ==================
     let formattedJawaban;
-
     if (Array.isArray(jawaban) || typeof jawaban === "object") {
-      // simpan dalam bentuk JSON string
       formattedJawaban = JSON.stringify(jawaban);
     } else if (typeof jawaban === "string" || typeof jawaban === "number") {
       formattedJawaban = String(jawaban);
-    } else if (jawaban === null || jawaban === undefined) {
-      formattedJawaban = null;
     } else {
-      formattedJawaban = JSON.stringify(jawaban);
+      formattedJawaban = null;
+    }
+
+    // ================== HITUNG NILAI (TIDAK DIRETURNKAN) ==================
+    let nilai = 0;
+    const jenis = soal.jenis_soal;
+    const jawabanBenar = soal.jawaban_benar;
+
+    try {
+      if (jenis === "isian") {
+        nilai = 0;
+      } else if (jenis === "pilihan_ganda_satu") {
+        if (String(jawabanBenar).trim() === String(jawaban).trim()) {
+          nilai = soal.score || 0;
+        }
+      } else if (jenis === "pilihan_ganda_banyak") {
+        let parsedJawaban = [];
+        let parsedBenar = [];
+
+        try {
+          parsedJawaban =
+            typeof jawaban === "string" ? JSON.parse(jawaban) : jawaban;
+        } catch {
+          parsedJawaban = [];
+        }
+
+        try {
+          parsedBenar =
+            typeof jawabanBenar === "string"
+              ? JSON.parse(jawabanBenar)
+              : jawabanBenar;
+        } catch {
+          parsedBenar = [];
+        }
+
+        const isEqual =
+          Array.isArray(parsedJawaban) &&
+          Array.isArray(parsedBenar) &&
+          parsedJawaban.length === parsedBenar.length &&
+          parsedJawaban.every((v) => parsedBenar.includes(v));
+
+        nilai = isEqual ? soal.score || 0 : 0;
+      }
+    } catch {
+      nilai = 0;
     }
 
     // ================== SIMPAN JAWABAN ==================
@@ -83,11 +123,15 @@ router.post("/", authenticateToken, authorizeRole(["Siswa"]), async (req, res) =
       jawaban: formattedJawaban,
       status: status || "selesai",
       keterangan: keterangan || null,
+      nilai, // disimpan di DB, tapi tidak dikirim balik
     });
+
+    // Hapus kolom nilai dari response
+    const { nilai: _, ...jawabanResponse } = newJawaban.toJSON();
 
     return res.status(201).send({
       message: "Jawaban berhasil disimpan",
-      data: newJawaban,
+      data: jawabanResponse,
     });
   } catch (err) {
     console.error(err);

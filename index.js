@@ -70,8 +70,7 @@ KelasTahunAjaran.belongsTo(TahunAjaran, { foreignKey: "id_tahun_ajaran" });
 KelasTahunAjaran.belongsTo(Kelas, { foreignKey: "id_kelas" });
 KelasTahunAjaran.belongsTo(Pelajaran, { foreignKey: "id_pelajaran" });
 KelasTahunAjaran.belongsTo(User, { as: "GuruPengampu", foreignKey: "guru_pengampu" });
-
-// Supaya bisa ambil data "kelas -> siswa" lewat kelas_tahun_ajaran
+Pelajaran.hasMany(KelasTahunAjaran, { foreignKey: "id_pelajaran", as: "kelasTahunAjaranList" });
 KelasTahunAjaran.hasMany(KelasSiswa, { foreignKey: "id_kelas", sourceKey: "id_kelas", as: "SiswaKelas" });
 KelasSiswa.belongsTo(KelasTahunAjaran, { foreignKey: "id_kelas", targetKey: "id_kelas", as: "KelasTahunAjaranRef" });
 
@@ -126,7 +125,6 @@ Soal.belongsTo(Ujian, { foreignKey: "id_ujian", as: "ujian" });
 
 JawabanUjian.belongsTo(Soal, { foreignKey: "id_soal" });
 Soal.hasMany(JawabanUjian, { foreignKey: "id_soal" });
-
 
 // ================= TEST ROUTE =================
 app.get("/test", (req, res) => {

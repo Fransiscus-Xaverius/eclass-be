@@ -63,11 +63,11 @@ router.post(
           .status(400)
           .send({ message: "Nomor telepon tidak valid (min. 8 digit angka)" });
       }
-      if (telp_ortu && !isValidPhone(telp_ortu)) {
-        return res.status(400).send({
-          message: "Nomor telepon orang tua tidak valid (min. 8 digit angka)",
-        });
-      }
+      // if (telp_ortu && !isValidPhone(telp_ortu)) {
+      //   return res.status(400).send({
+      //     message: "Nomor telepon orang tua tidak valid (min. 8 digit angka)",
+      //   });
+      // }
 
       const existingUser = await User.findOne({
         where: {
@@ -149,11 +149,11 @@ router.post(
             message: `Nomor telepon tidak valid pada user: ${u.username}`,
           });
         }
-        if (u.telp_ortu && !isValidPhone(u.telp_ortu)) {
-          return res.status(400).send({
-            message: `Nomor telepon orang tua tidak valid pada user: ${u.username}`,
-          });
-        }
+        // if (u.telp_ortu && !isValidPhone(u.telp_ortu)) {
+        //   return res.status(400).send({
+        //     message: `Nomor telepon orang tua tidak valid pada user: ${u.username}`,
+        //   });
+        // }
       }
 
       const usernames = users.map((u) => u.username);
@@ -243,11 +243,11 @@ router.put(
           .status(400)
           .send({ message: "Nomor telepon tidak valid (min. 8 digit angka)" });
       }
-      if (updateData.telp_ortu && !isValidPhone(updateData.telp_ortu)) {
-        return res.status(400).send({
-          message: "Nomor telepon orang tua tidak valid (min. 8 digit angka)",
-        });
-      }
+      // if (updateData.telp_ortu && !isValidPhone(updateData.telp_ortu)) {
+      //   return res.status(400).send({
+      //     message: "Nomor telepon orang tua tidak valid (min. 8 digit angka)",
+      //   });
+      // }
 
       if (updateData.password) {
         updateData.password = await bcrypt.hash(updateData.password, 10);
