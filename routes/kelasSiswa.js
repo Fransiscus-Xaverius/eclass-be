@@ -1,3 +1,4 @@
+// src/routes/kelasSiswa.js
 const express = require("express");
 const router = express.Router();
 const path = require("path");
@@ -79,8 +80,10 @@ router.get("/", authenticateToken, async (req, res) => {
         siswa: plain.Siswa,
         kelas: plain.Kelas,
         tahunAjaran: plain.TahunAjaran,
-        rapor_ganjil: getFileUrl(req, plain.rapor_ganjil),
-        rapor_genap: getFileUrl(req, plain.rapor_genap),
+        rapor_tengah_ganjil: getFileUrl(req, plain.rapor_tengah_ganjil),
+        rapor_akhir_ganjil: getFileUrl(req, plain.rapor_akhir_ganjil),
+        rapor_tengah_genap: getFileUrl(req, plain.rapor_tengah_genap),
+        rapor_akhir_genap: getFileUrl(req, plain.rapor_akhir_genap),
       };
     });
 
@@ -99,7 +102,9 @@ router.get("/list-siswa", authenticateToken, async (req, res) => {
     const { id_kelas_tahun_ajaran } = req.query;
 
     if (!id_kelas_tahun_ajaran) {
-      return res.status(400).send({ message: "Parameter id_kelas_tahun_ajaran wajib diisi" });
+      return res
+        .status(400)
+        .send({ message: "Parameter id_kelas_tahun_ajaran wajib diisi" });
     }
 
     const kelasTahunAjaran = await KelasTahunAjaran.findOne({
@@ -108,7 +113,9 @@ router.get("/list-siswa", authenticateToken, async (req, res) => {
     });
 
     if (!kelasTahunAjaran) {
-      return res.status(404).send({ message: "Kelas tahun ajaran tidak ditemukan" });
+      return res
+        .status(404)
+        .send({ message: "Kelas tahun ajaran tidak ditemukan" });
     }
 
     const siswaList = await KelasSiswa.findAll({
@@ -173,8 +180,10 @@ router.get("/:id_kelas_siswa", authenticateToken, async (req, res) => {
       siswa: plain.Siswa,
       kelas: plain.Kelas,
       tahunAjaran: plain.TahunAjaran,
-      rapor_ganjil: getFileUrl(req, plain.rapor_ganjil),
-      rapor_genap: getFileUrl(req, plain.rapor_genap),
+      rapor_tengah_ganjil: getFileUrl(req, plain.rapor_tengah_ganjil),
+      rapor_akhir_ganjil: getFileUrl(req, plain.rapor_akhir_ganjil),
+      rapor_tengah_genap: getFileUrl(req, plain.rapor_tengah_genap),
+      rapor_akhir_genap: getFileUrl(req, plain.rapor_akhir_genap),
     };
 
     return res.status(200).send({ message: "success", data: formatted });
@@ -186,7 +195,7 @@ router.get("/:id_kelas_siswa", authenticateToken, async (req, res) => {
   }
 });
 
-// ================== UPLOAD RAPOR (GANJIL / GENAP) ==================
+// ================== UPLOAD RAPOR (4 TIPE) ==================
 router.put(
   "/upload-rapor/:id_kelas_siswa/:tipe",
   authenticateToken,
@@ -201,17 +210,21 @@ router.put(
         return res.status(404).send({ message: "Data tidak ditemukan" });
       }
 
-      if (!["ganjil", "genap"].includes(tipe)) {
-        return res
-          .status(400)
-          .send({ message: "Tipe rapor harus ganjil atau genap" });
+      const validTipe = [
+        "tengah_ganjil",
+        "akhir_ganjil",
+        "tengah_genap",
+        "akhir_genap",
+      ];
+      if (!validTipe.includes(tipe)) {
+        return res.status(400).send({ message: "Tipe rapor tidak valid" });
       }
 
       if (!req.file) {
         return res.status(400).send({ message: "File rapor wajib diupload" });
       }
 
-      const fieldName = tipe === "ganjil" ? "rapor_ganjil" : "rapor_genap";
+      const fieldName = `rapor_${tipe}`;
 
       // Hapus file lama jika ada
       if (kelasSiswa[fieldName]) {
@@ -220,12 +233,9 @@ router.put(
           "../uploads/rapor",
           kelasSiswa[fieldName]
         );
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
 
-      // Update ke DB
       await kelasSiswa.update({ [fieldName]: req.file.filename });
 
       return res.status(200).send({
@@ -268,7 +278,7 @@ router.delete(
   }
 );
 
-// ================== DELETE RAPOR (GANJIL / GENAP) ==================
+// ================== DELETE RAPOR (4 TIPE) ==================
 router.delete(
   "/delete-rapor/:id_kelas_siswa/:tipe",
   authenticateToken,
@@ -281,14 +291,24 @@ router.delete(
       if (!kelasSiswa || kelasSiswa.deleted_at)
         return res.status(404).send({ message: "Data tidak ditemukan" });
 
-      if (!["ganjil", "genap"].includes(tipe))
+      const validTipe = [
+        "tengah_ganjil",
+        "akhir_ganjil",
+        "tengah_genap",
+        "akhir_genap",
+      ];
+      if (!validTipe.includes(tipe))
         return res.status(400).send({ message: "Tipe rapor tidak valid" });
 
-      const fieldName = tipe === "ganjil" ? "rapor_ganjil" : "rapor_genap";
+      const fieldName = `rapor_${tipe}`;
 
       // hapus file lama dari folder
       if (kelasSiswa[fieldName]) {
-        const oldPath = path.join(__dirname, "../uploads/rapor", kelasSiswa[fieldName]);
+        const oldPath = path.join(
+          __dirname,
+          "../uploads/rapor",
+          kelasSiswa[fieldName]
+        );
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
 
@@ -296,22 +316,30 @@ router.delete(
 
       return res.status(200).send({ message: `Rapor ${tipe} berhasil dihapus` });
     } catch (err) {
-      return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+      return res
+        .status(500)
+        .send({ message: "Terjadi kesalahan", error: err.message });
     }
   }
 );
 
-// ================== DOWNLOAD / CETAK RAPOR BERDASARKAN TAHUN AJARAN ==================
+// ================== DOWNLOAD RAPOR BERDASARKAN TAHUN AJARAN ==================
 router.get(
   "/download-rapor-tahun-ajaran/:id_tahun_ajaran/:tipe",
   authenticateToken,
   async (req, res) => {
     try {
       const { id_tahun_ajaran, tipe } = req.params;
-      const { id_kelas } = req.query; // optional filter kelas
+      const { id_kelas } = req.query; 
 
-      if (!["ganjil", "genap"].includes(tipe)) {
-        return res.status(400).send({ message: "Tipe rapor harus ganjil atau genap" });
+      const validTipe = [
+        "rapor_tengah_ganjil",
+        "rapor_akhir_ganjil",
+        "rapor_tengah_genap",
+        "rapor_akhir_genap",
+      ];
+      if (!validTipe.includes(tipe)) {
+        return res.status(400).send({ message: "Tipe rapor tidak valid" });
       }
 
       const whereClause = {
@@ -330,34 +358,47 @@ router.get(
       });
 
       if (!kelasSiswaList.length) {
-        return res.status(404).send({ message: "Tidak ada siswa ditemukan untuk tahun ajaran ini" });
+        return res
+          .status(404)
+          .send({ message: "Tidak ada siswa ditemukan untuk tahun ajaran ini" });
       }
 
-      // Ambil file rapor pertama sebagai contoh (jika ingin zip semua, perlu zip library)
       const siswa = kelasSiswaList[0];
-      const fieldName = tipe === "ganjil" ? "rapor_ganjil" : "rapor_genap";
+      const fieldName = tipe;
       const fileName = siswa[fieldName];
 
       if (!fileName) {
-        return res.status(400).send({ message: `Rapor ${tipe} siswa ${siswa.Siswa.nama} belum diupload` });
+        return res
+          .status(400)
+          .send({
+            message: `Rapor ${tipe} siswa ${siswa.Siswa.nama} belum diupload`,
+          });
       }
 
       const filePath = path.join(__dirname, "../uploads/rapor", fileName);
       if (!fs.existsSync(filePath)) {
-        return res.status(400).send({ message: "File rapor tidak ditemukan di server" });
+        return res
+          .status(400)
+          .send({ message: "File rapor tidak ditemukan di server" });
       }
 
-      const downloadName = `${siswa.Siswa.nama}_rapor_${tipe}${path.extname(fileName)}`;
+      const downloadName = `${siswa.Siswa.nama}_rapor_${tipe}${path.extname(
+        fileName
+      )}`;
 
       res.download(filePath, downloadName, (err) => {
         if (err) {
           console.error("Error download rapor:", err);
-          return res.status(500).send({ message: "Gagal mendownload file", error: err.message });
+          return res
+            .status(500)
+            .send({ message: "Gagal mendownload file", error: err.message });
         }
       });
     } catch (err) {
       console.error("Download rapor error:", err);
-      return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
+      return res
+        .status(500)
+        .send({ message: "Terjadi kesalahan", error: err.message });
     }
   }
 );

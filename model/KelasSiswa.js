@@ -38,12 +38,20 @@ KelasSiswa.init(
       },
       onDelete: "CASCADE",
     },
-    rapor_ganjil: {
-      type: DataTypes.STRING(255),
+    rapor_tengah_ganjil: {
+      type: DataTypes.TEXT,
       allowNull: true,
     },
-    rapor_genap: {
-      type: DataTypes.STRING(255),
+    rapor_akhir_ganjil: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    rapor_tengah_genap: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    rapor_akhir_genap: {
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     created_at: {
