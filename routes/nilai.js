@@ -7,6 +7,9 @@ const { authenticateToken } = require("../middleware/auth");
 const Modul = require("../model/Modul");
 const KelasSiswa = require("../model/KelasSiswa");
 const Pelajaran = require("../model/Pelajaran");
+const Ujian = require("../model/Ujian");
+const Soal = require("../model/Soal");
+const JawabanUjian = require("../model/JawabanUjian");
 
 // ================== CREATE (Single or Multiple) ==================
 router.post("/", authenticateToken, async (req, res) => {
@@ -147,7 +150,7 @@ router.get("/guru/:id_kelas_tahun_ajaran", authenticateToken, async (req, res) =
       return res.status(404).send({ message: "Kelas tidak ditemukan" });
     }
 
-    // Ambil siswa unik (hindari duplikasi id_user)
+    // Ambil siswa unik
     const siswaList = [
       ...new Map(
         (kelasData.SiswaKelas || [])
@@ -157,14 +160,21 @@ router.get("/guru/:id_kelas_tahun_ajaran", authenticateToken, async (req, res) =
       ).values(),
     ];
 
-    // Ambil semua modul (termasuk ujian) yang terkait dengan kelas tersebut
+    // Ambil semua modul (materi)
     const modulList = await Modul.findAll({
       where: { id_kelas_tahun_ajaran, deleted_at: null },
       attributes: ["id_modul", "jenis_modul", "nama_modul"],
       order: [["id_modul", "ASC"]],
     });
 
-    // Ambil semua nilai
+    // Ambil semua ujian
+    const ujianList = await Ujian.findAll({
+      where: { id_kelas_tahun_ajaran, deleted_at: null },
+      attributes: ["id_ujian", "jenis_ujian"],
+      order: [["id_ujian", "ASC"]],
+    });
+
+    // Ambil semua nilai modul dari tabel nilai
     const listNilai = await Nilai.findAll({
       where: { id_kelas_tahun_ajaran, deleted_at: null },
       include: [
@@ -181,18 +191,48 @@ router.get("/guru/:id_kelas_tahun_ajaran", authenticateToken, async (req, res) =
       ],
     });
 
-    // Siapkan peta nilai per siswa & modul
+    // Buat map nilai modul
     const nilaiMap = {};
     for (const n of listNilai) {
       const idUser = n.siswa?.id_user;
-      const idModul = n.modul?.id_modul;
-      if (idUser && idModul) {
-        if (!nilaiMap[idUser]) nilaiMap[idUser] = {};
-        nilaiMap[idUser][idModul] = n.nilai;
+      const idModul = n.id_modul;
+      if (!idUser) continue;
+
+      if (!nilaiMap[idUser]) nilaiMap[idUser] = {};
+      if (idModul) nilaiMap[idUser][`modul_${idModul}`] = n.nilai;
+    }
+
+    // === Ambil nilai ujian dari jawaban (langsung jumlah total) ===
+    for (const ujian of ujianList) {
+      const soalList = await Soal.findAll({
+        where: { id_ujian: ujian.id_ujian, deleted_at: null },
+        attributes: ["id_soal"],
+      });
+
+      const soalIds = soalList.map((s) => s.id_soal);
+
+      for (const siswa of siswaList) {
+        const jawabanList = await JawabanUjian.findAll({
+          where: {
+            id_user: siswa.id_user,
+            id_soal: soalIds,
+            deleted_at: null,
+          },
+          attributes: ["nilai"],
+        });
+
+        // Jumlahkan semua nilai dari jawaban ujian siswa
+        const totalNilai = jawabanList.reduce(
+          (sum, j) => sum + (parseInt(j.nilai) || 0),
+          0
+        );
+
+        if (!nilaiMap[siswa.id_user]) nilaiMap[siswa.id_user] = {};
+        nilaiMap[siswa.id_user][`ujian_${ujian.id_ujian}`] = totalNilai;
       }
     }
 
-    // Buat header tabel
+    // Header tabel
     const headers = [
       { field: "nama", label: "Nama Siswa", width: "300px" },
       ...modulList.map((m) => ({
@@ -200,13 +240,21 @@ router.get("/guru/:id_kelas_tahun_ajaran", authenticateToken, async (req, res) =
         label: m.jenis_modul || m.nama_modul || `Modul ${m.id_modul}`,
         width: "150px",
       })),
+      ...ujianList.map((u) => ({
+        field: `ujian_${u.id_ujian}`,
+        label: u.jenis_ujian,
+        width: "150px",
+      })),
     ];
 
-    // Buat rows per siswa
+    // Rows per siswa
     const rows = siswaList.map((s) => {
       const row = { nama: s.nama };
       for (const m of modulList) {
-        row[`modul_${m.id_modul}`] = nilaiMap[s.id_user]?.[m.id_modul] ?? "-";
+        row[`modul_${m.id_modul}`] = nilaiMap[s.id_user]?.[`modul_${m.id_modul}`] ?? "-";
+      }
+      for (const u of ujianList) {
+        row[`ujian_${u.id_ujian}`] = nilaiMap[s.id_user]?.[`ujian_${u.id_ujian}`] ?? "-";
       }
       return row;
     });
@@ -231,61 +279,48 @@ router.get("/siswa/:id_tahun_ajaran", authenticateToken, async (req, res) => {
     const { id_tahun_ajaran } = req.params;
     const id_user = req.user.id_user;
 
-    // Ambil semua kelas siswa di tahun ajaran tersebut
+    // Ambil semua kelas siswa di tahun ajaran
     const kelasSiswaList = await KelasSiswa.findAll({
-      where: {
-        id_siswa: id_user,
-        id_tahun_ajaran,
-      },
+      where: { id_siswa: id_user, id_tahun_ajaran },
       include: [
         {
           model: KelasTahunAjaran,
-          as: "KelasTahunAjaranRef", // sesuai alias di model
-          include: [
-            {
-              model: Pelajaran,
-              attributes: ["nama_pelajaran"],
-            },
-          ],
+          as: "KelasTahunAjaranRef",
+          include: [{ model: Pelajaran, attributes: ["nama_pelajaran"] }],
           attributes: ["id_kelas_tahun_ajaran", "id_pelajaran"],
         },
       ],
     });
 
     if (!kelasSiswaList.length) {
-      return res
-        .status(404)
-        .send({ message: "Siswa belum terdaftar di kelas manapun untuk tahun ajaran ini" });
+      return res.status(404).send({
+        message: "Siswa belum terdaftar di kelas manapun untuk tahun ajaran ini",
+      });
     }
 
-    const kelasIds = kelasSiswaList.map(
-      (k) => k.KelasTahunAjaranRef?.id_kelas_tahun_ajaran
-    ).filter(Boolean);
+    const kelasIds = kelasSiswaList
+      .map((k) => k.KelasTahunAjaranRef?.id_kelas_tahun_ajaran)
+      .filter(Boolean);
 
-    // Ambil semua modul untuk kelas yang dimaksud
-    const modulList = await Modul.findAll({
-      where: { id_kelas_tahun_ajaran: kelasIds, deleted_at: null },
-      attributes: ["id_modul", "id_kelas_tahun_ajaran", "jenis_modul", "nama_modul"],
-      order: [["id_modul", "ASC"]],
-    });
+    // Ambil modul & ujian
+    const [modulList, ujianList] = await Promise.all([
+      Modul.findAll({
+        where: { id_kelas_tahun_ajaran: kelasIds, deleted_at: null },
+        attributes: ["id_modul", "id_kelas_tahun_ajaran", "jenis_modul", "nama_modul"],
+      }),
+      Ujian.findAll({
+        where: { id_kelas_tahun_ajaran: kelasIds, deleted_at: null },
+        attributes: ["id_ujian", "id_kelas_tahun_ajaran", "jenis_ujian"],
+      }),
+    ]);
 
-    // Ambil nilai siswa untuk semua modul
+    // Ambil nilai modul dari tabel Nilai
     const nilaiList = await Nilai.findAll({
-      where: {
-        id_kelas_tahun_ajaran: kelasIds,
-        id_siswa: id_user,
-        deleted_at: null,
-      },
-      include: [
-        {
-          model: Modul,
-          as: "modul",
-          attributes: ["id_modul", "id_kelas_tahun_ajaran"],
-        },
-      ],
+      where: { id_kelas_tahun_ajaran: kelasIds, id_siswa: id_user, deleted_at: null },
+      attributes: ["id_modul", "id_ujian", "nilai", "id_kelas_tahun_ajaran"],
     });
 
-    // Kelompokkan hasil berdasarkan nama pelajaran
+    // Buat struktur hasil akhir per pelajaran
     const hasil = {};
 
     for (const kelas of kelasSiswaList) {
@@ -295,21 +330,59 @@ router.get("/siswa/:id_tahun_ajaran", authenticateToken, async (req, res) => {
       const idKelasTA = kelasTA.id_kelas_tahun_ajaran;
       const namaPelajaran = kelasTA.Pelajaran?.nama_pelajaran || "Tanpa Nama";
 
-      // Ambil semua modul pada kelas ini
+      // Filter modul & ujian per kelas
       const modulKelas = modulList.filter((m) => m.id_kelas_tahun_ajaran === idKelasTA);
+      const ujianKelas = ujianList.filter((u) => u.id_kelas_tahun_ajaran === idKelasTA);
 
       // Buat header
-      const headers = modulKelas.map((m) => ({
-        field: `modul_${m.id_modul}`,
-        label: m.jenis_modul || m.nama_modul || `Modul ${m.id_modul}`,
-        width: "150px",
-      }));
+      const headers = [
+        ...modulKelas.map((m) => ({
+          field: `modul_${m.id_modul}`,
+          label: m.jenis_modul || m.nama_modul || `Modul ${m.id_modul}`,
+          width: "150px",
+        })),
+        ...ujianKelas.map((u) => ({
+          field: `ujian_${u.id_ujian}`,
+          label: u.jenis_ujian || `Ujian ${u.id_ujian}`,
+          width: "150px",
+        })),
+      ];
 
       // Buat row nilai
       const row = {};
+
+      // === Nilai Modul ===
       for (const m of modulKelas) {
-        const nilai = nilaiList.find((n) => n.id_modul === m.id_modul);
+        const nilai = nilaiList.find(
+          (n) => n.id_modul === m.id_modul && n.id_kelas_tahun_ajaran === idKelasTA
+        );
         row[`modul_${m.id_modul}`] = nilai ? nilai.nilai : "-";
+      }
+
+      // === Nilai Ujian (langsung dari jawaban_ujian, dijumlahkan) ===
+      for (const u of ujianKelas) {
+        const soalList = await Soal.findAll({
+          where: { id_ujian: u.id_ujian, deleted_at: null },
+          attributes: ["id_soal"],
+        });
+
+        const soalIds = soalList.map((s) => s.id_soal);
+
+        const jawabanList = await JawabanUjian.findAll({
+          where: {
+            id_user,
+            id_soal: soalIds,
+            deleted_at: null,
+          },
+          attributes: ["nilai"],
+        });
+
+        const totalNilai = jawabanList.reduce(
+          (sum, j) => sum + (parseInt(j.nilai) || 0),
+          0
+        );
+
+        row[`ujian_${u.id_ujian}`] = jawabanList.length > 0 ? totalNilai : "-";
       }
 
       hasil[namaPelajaran] = {
@@ -318,11 +391,7 @@ router.get("/siswa/:id_tahun_ajaran", authenticateToken, async (req, res) => {
       };
     }
 
-    // Return hasil
-    return res.status(200).send({
-      message: "success",
-      ...hasil,
-    });
+    return res.status(200).send({ message: "success", ...hasil });
   } catch (err) {
     console.error("Get nilai siswa error:", err);
     return res.status(500).send({

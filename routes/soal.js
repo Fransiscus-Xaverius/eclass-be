@@ -314,7 +314,10 @@ router.put(
         updated_at: new Date(),
       };
 
-      // Validasi dan update score
+      // === Validasi dan detect perubahan score ===
+      let scoreChanged = false;
+      let newScore = soal.score;
+
       if (req.body.score !== undefined) {
         const parsedScore = parseInt(req.body.score);
         if (isNaN(parsedScore) || parsedScore < 0 || parsedScore > 100) {
@@ -322,7 +325,12 @@ router.put(
             message: "Score harus berupa angka antara 0 - 100",
           });
         }
-        updateData.score = parsedScore;
+
+        if (parsedScore !== soal.score) {
+          scoreChanged = true;
+          newScore = parsedScore;
+          updateData.score = parsedScore;
+        }
       }
 
       if (req.file) {
@@ -334,7 +342,32 @@ router.put(
         updateData.gambar = req.file.filename;
       }
 
+      // Update soal di DB
       await soal.update(updateData);
+
+      // === Jika score berubah dan soal tipe PG, update JawabanUjian berdasarkan nilai sebelumnya ===
+      if (
+        scoreChanged &&
+        (soal.jenis_soal === "pilihan_ganda_satu" ||
+          soal.jenis_soal === "pilihan_ganda_banyak")
+      ) {
+        // Ambil semua jawaban untuk soal ini
+        const jawabanList = await JawabanUjian.findAll({
+          where: { id_soal },
+        });
+
+        for (const j of jawabanList) {
+          // Ketentuanmu: jika jawaban sudah memiliki nilai != 0 -> dianggap benar,
+          // maka set ulang nilai ke score baru. Jika nilai === 0 -> tetap 0.
+          const prevNilai = parseInt(j.nilai) || 0;
+          const newNilai = prevNilai !== 0 ? newScore : 0;
+
+          // Update hanya jika berubah (opsional)
+          if (newNilai !== prevNilai) {
+            await j.update({ nilai: newNilai });
+          }
+        }
+      }
 
       return res.status(200).send({
         message: "Soal berhasil diperbarui",
@@ -344,6 +377,7 @@ router.put(
         },
       });
     } catch (err) {
+      console.error("Update soal error:", err);
       return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
     }
   }

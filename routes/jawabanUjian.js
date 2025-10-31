@@ -177,4 +177,42 @@ router.get(
   }
 );
 
+// ================== UPDATE NILAI (Guru saja) ==================
+router.put("/:id", authenticateToken, authorizeRole("Guru"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(id)
+    const { nilai, keterangan } = req.body;
+
+    // Validasi input
+    if (nilai === undefined || nilai === null) {
+      return res.status(400).send({ message: "Nilai wajib diisi" });
+    }
+
+    // Cari jawaban
+    const jawaban = await JawabanUjian.findByPk(id);
+    if (!jawaban) {
+      return res.status(404).send({ message: "Jawaban tidak ditemukan" });
+    }
+
+    // Update nilai & keterangan
+    jawaban.nilai = nilai;
+    if (keterangan !== undefined) {
+      jawaban.keterangan = keterangan;
+    }
+    await jawaban.save();
+
+    return res.status(200).send({
+      message: "Nilai berhasil diperbarui",
+      data: jawaban,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({
+      message: "Terjadi kesalahan",
+      error: err.message,
+    });
+  }
+});
+
 module.exports = router;
