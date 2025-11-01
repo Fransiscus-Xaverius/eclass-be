@@ -421,7 +421,6 @@ router.post("/:id_ujian/jawaban-siswa", authenticateToken, async (req, res) => {
         (j) => j.id_user === parseInt(id_user)
       );
       const sudahDikerjakan = !!jawabanSiswa;
-
       return {
         id_jawaban: sudahDikerjakan ? jawabanSiswa.id_jawaban : "",
         id_soal: soal.id_soal,
@@ -436,6 +435,7 @@ router.post("/:id_ujian/jawaban-siswa", authenticateToken, async (req, res) => {
         jawaban_siswa: sudahDikerjakan ? jawabanSiswa.jawaban : null,
         nilai_siswa: sudahDikerjakan ? jawabanSiswa.nilai : 0,
         notes: sudahDikerjakan ? "Sudah mengerjakan" : "Belum mengerjakan",
+        keterangan: sudahDikerjakan ? jawabanSiswa.keterangan : "",
       };
     });
 
