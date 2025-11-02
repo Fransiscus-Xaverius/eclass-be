@@ -3,11 +3,18 @@ require("dotenv").config(); // load .env
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-
 const app = express();
 
+// CORS configuration
+const corsOptions = {
+  origin: '*', // Allow all origins, or specify your frontend URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
 // Middleware global
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
