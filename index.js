@@ -59,14 +59,6 @@ const Ujian = require("./model/Ujian");
 const Soal = require("./model/Soal");
 const JawabanUjian = require("./model/JawabanUjian");
 
-// ================= SYNC DATABASE =================
-const sequelize = require("./config/sequelize");
-
-// Sync all models (create tables)
-sequelize.sync({ force: false })
-  .then(() => console.log("📊 Database tables synced"))
-  .catch(err => console.error("❌ Database sync error:", err));
-
 // ================= RELATION =================
 
 // --- Wali Kelas ---
