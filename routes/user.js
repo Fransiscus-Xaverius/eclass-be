@@ -339,6 +339,7 @@ router.delete(
 // ========================== LOGIN ==========================
 router.post("/login", async (req, res) => {
   try {
+    console.log("LOGIN REQUEST RECEIVED:", req.body);
     const { username, email, password } = req.body;
 
     if ((!username && !email) || !password) {
