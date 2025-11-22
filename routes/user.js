@@ -376,7 +376,8 @@ router.post("/login", async (req, res) => {
       id_user: user.id_user
     });
   } catch (err) {
-    return res.status(500).send({ message: "Terjadi kesalahan", error: err });
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).send({ message: "Terjadi kesalahan", error: err.message });
   }
 });
 
