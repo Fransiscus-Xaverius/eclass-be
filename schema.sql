@@ -1,7 +1,7 @@
 -- Database Schema for E-Class System
 -- Run this file to create all tables
 
-USE DATABASE eclass;
+USE eclass;
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id_user` INT AUTO_INCREMENT PRIMARY KEY,
